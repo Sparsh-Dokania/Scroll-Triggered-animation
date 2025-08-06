@@ -69,6 +69,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const maskContainer = document.querySelector('.mask-container');
     const maskImage = document.querySelector('.mask-container .mask-img');
     const maskHeader = document.querySelector('.mask-container .header h1');
+    const spotlightHeader = document.querySelector('.spotlight .header h1');
+
+    // Initialize mask header to be hidden
+    if (maskHeader) {
+        gsap.set(maskHeader, {
+            opacity: 0,
+            y: '20px'
+        });
+    }
+
+    // Initialize spotlight header
+    if (spotlightHeader) {
+        gsap.set(spotlightHeader, {
+            opacity: 1,
+            scale: 1
+        });
+    }
 
     if (spotlightImages) {
         const spotlightContainerHeight = spotlightImages.offsetHeight;
@@ -87,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             onUpdate: (self) => {
                 const progress = self.progress;
 
+                // Animate spotlight images movement
                 if (progress < 0.5) {
                     const imageProgress = progress / 0.5;
                     const startY = 5;
@@ -96,6 +114,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     gsap.set(spotlightImages, {
                         y: `${currentY}%`
                     });
+                }
+
+                // Animate spotlight header fade out
+                if (spotlightHeader) {
+                    if (progress < 0.3) {
+                        gsap.set(spotlightHeader, {
+                            opacity: 1,
+                            scale: 1,
+                            y: '0px'
+                        });
+                    } else if (progress >= 0.3 && progress < 0.6) {
+                        const fadeProgress = (progress - 0.3) / 0.3;
+                        gsap.set(spotlightHeader, {
+                            opacity: 1 - fadeProgress * 0.7,
+                            scale: 1 - fadeProgress * 0.3,
+                            y: `${fadeProgress * -30}px`
+                        });
+                    } else {
+                        gsap.set(spotlightHeader, {
+                            opacity: 0.3,
+                            scale: 0.7,
+                            y: '-30px'
+                        });
+                    }
                 }
 
                 if(maskContainer && maskHeader) {
@@ -129,30 +171,24 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         }
                     }
-                    if(headerSplit && headerSplit.words.length > 0){
+
+                    // Simple text fade animation for mask header
+                    if(maskHeader) {
                         if(progress > 0.75 && progress < 0.95){
                             const textProgress = (progress - 0.75) / 0.2; // Normalize to 0-1
-                            const totalWords = headerSplit.words.length;
-                            headerSplit.words.forEach((word, index) => {
-                                const wordRevealProgress = index/ totalWords;
-                                if(textProgress > wordRevealProgress) {
-                                    gsap.set(word, {
-                                        opacity: 1,
-                                    });
-
-                                }else {
-                                    gsap.set(word, {
-                                        opacity: 0,
-                                    });
-                                }
+                            gsap.set(maskHeader, {
+                                opacity: textProgress,
+                                y: `${(1 - textProgress) * 20}px`
                             });
                         } else if (progress < 0.75){
-                            gsap.set(headerSplit.words, {
+                            gsap.set(maskHeader, {
                                 opacity: 0,
+                                y: '20px'
                             });
-                        } else if (progress > 0.95) {
-                            gsap.set(headerSplit.words, {
+                        } else if (progress >= 0.95) {
+                            gsap.set(maskHeader, {
                                 opacity: 1,
+                                y: '0px'
                             });
                         }
                     }
