@@ -1,45 +1,163 @@
-import gasp from 'gasp';
-import { ScrollTrigger } from 'gsap/all';
-import { SplitText } from 'gsap/all';
-import Lenis from 'lenis';
+// Since we're loading GSAP from CDN script tags, we don't need imports
+// The libraries are available globally as gsap, ScrollTrigger, etc.
 
 document.addEventListener('DOMContentLoaded', () => {
-    gsap.registerPlugin(ScrollTrigger, SplitText);
+    gsap.registerPlugin(ScrollTrigger);
 
-    const lenis = new Lenis();
-    lenis.on('scroll', ScrollTrigger.update);
-    gsap.ticker.add((time) => {
-        lenis.raf(time*1000);
-    });
-    gsap.ticker.lagSmoothing(0);
+    // Initialize Lenis for smooth scrolling
+    let lenis;
+    
+    const initLenis = () => {
+        if (typeof Lenis !== 'undefined') {
+            lenis = new Lenis({
+                duration: 1.2,
+                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                direction: 'vertical',
+                gestureDirection: 'vertical',
+                smooth: true,
+                mouseMultiplier: 1,
+                smoothTouch: false,
+                touchMultiplier: 2,
+                infinite: false,
+            });
 
-    const spotlightImages = document.querySelector('.spotlight-image');
-    const maskContainer = document.querySelector('.mask-container');
-    const maskImage = document.querySelector('.mask-image');
-    const maskHeader = document.querySelector('.mask-container .header h1');
+            lenis.on('scroll', ScrollTrigger.update);
+            
+            gsap.ticker.add((time) => {
+                lenis.raf(time * 1000);
+            });
+            
+            gsap.ticker.lagSmoothing(0);
+            
+            console.log('Lenis initialized successfully');
+            return true;
+        } else {
+            console.warn('Lenis not found, trying fallback CDN...');
+            return false;
+        }
+    };
 
-    const spotlightContainerHeight = spotlightImages.offsetHeight;
-    const viewportHeight = window.innerHeight;
-    const initialOffset = spotlightContainerHeight * 0.05;
-    const totalMovement = spotlightContainerHeight + viewportHeight + initialOffset;
+    // Try to initialize Lenis with fallback loading
+    const tryInitLenis = () => {
+        if (!initLenis()) {
+            // Fallback: Load Lenis from alternative CDN
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js';
+            script.onload = () => {
+                setTimeout(() => {
+                    if (!initLenis()) {
+                        console.warn('All Lenis loading attempts failed, continuing without smooth scroll');
+                    }
+                }, 100);
+            };
+            script.onerror = () => {
+                console.warn('Fallback Lenis loading failed, continuing without smooth scroll');
+            };
+            document.head.appendChild(script);
+        }
+    };
 
-    let headerSplit = null;
-    if(maskHeader){
-        headerSplit = SplitText.create(maskHeader, {
-            type: 'words',
-            wordsClass: 'spotlight-word',
-    });
-    gsap.set(headerSplit.words, {opacity: 0});
+    // Try immediately or wait for DOM
+    if (typeof Lenis !== 'undefined') {
+        initLenis();
+    } else {
+        setTimeout(tryInitLenis, 100);
     }
 
-    ScrollTrigger.create({
-        trigger: ".spotlight",
-        start: 'top top',
-        end: `+=${window.innerHeight * 7}px`,
-        pin: true,
-        scrub: 1,
-        pinSpacer: true,
+    // Fixed selector to match your HTML
+    const spotlightImages = document.querySelector('.spotlight-images');
+    const maskContainer = document.querySelector('.mask-container');
+    const maskImage = document.querySelector('.mask-container .mask-img');
+    const maskHeader = document.querySelector('.mask-container .header h1');
 
-    });
+    if (spotlightImages) {
+        const spotlightContainerHeight = spotlightImages.offsetHeight;
+        const viewportHeight = window.innerHeight;
+        const initialOffset = spotlightContainerHeight * 0.05;
+        const totalMovement = spotlightContainerHeight + viewportHeight + initialOffset;
+
+        ScrollTrigger.create({
+            trigger: ".spotlight",
+            start: 'top top',
+            end: `+=${window.innerHeight * 7}px`,
+            pin: true,
+            scrub: 1,
+            pinSpacer: true,
+
+            onUpdate: (self) => {
+                const progress = self.progress;
+
+                if (progress < 0.5) {
+                    const imageProgress = progress / 0.5;
+                    const startY = 5;
+                    const endY = -((totalMovement / spotlightContainerHeight) * 100);
+                    const currentY = startY + (endY - startY) * imageProgress;
+
+                    gsap.set(spotlightImages, {
+                        y: `${currentY}%`
+                    });
+                }
+
+                if(maskContainer && maskHeader) {
+                    if(progress > 0.25 && progress < 0.75){
+                        const maskProgress = (progress - 0.25) / 0.5; // Normalize progress to 0-1 range
+                        const maskSize = `${maskProgress * 450}%`; // Convert to percentage
+                        const imageScale = 1.5 - maskProgress * 0.5;
+                        maskContainer.style.setProperty("-webkit-mask-size", maskSize);
+                        maskContainer.style.setProperty("mask-size", maskSize);
+
+                        if(maskImage) {
+                            gsap.set(maskImage, {
+                                scale: imageScale
+                            });
+                        }
+
+                    } else if (progress < 0.25){
+                        maskContainer.style.setProperty("-webkit-mask-size", "0%");
+                        maskContainer.style.setProperty("mask-size", "0%");
+                        if(maskImage) {
+                            gsap.set(maskImage, {
+                                scale: 1.5
+                            });
+                        }
+                    } else if (progress > 0.75) {
+                        maskContainer.style.setProperty("-webkit-mask-size", "450%");
+                        maskContainer.style.setProperty("mask-size", "450%");
+                        if(maskImage) {
+                            gsap.set(maskImage, {
+                                scale: 1
+                            });
+                        }
+                    }
+                    if(headerSplit && headerSplit.words.length > 0){
+                        if(progress > 0.75 && progress < 0.95){
+                            const textProgress = (progress - 0.75) / 0.2; // Normalize to 0-1
+                            const totalWords = headerSplit.words.length;
+                            headerSplit.words.forEach((word, index) => {
+                                const wordRevealProgress = index/ totalWords;
+                                if(textProgress > wordRevealProgress) {
+                                    gsap.set(word, {
+                                        opacity: 1,
+                                    });
+
+                                }else {
+                                    gsap.set(word, {
+                                        opacity: 0,
+                                    });
+                                }
+                            });
+                        } else if (progress < 0.75){
+                            gsap.set(headerSplit.words, {
+                                opacity: 0,
+                            });
+                        } else if (progress > 0.95) {
+                            gsap.set(headerSplit.words, {
+                                opacity: 1,
+                            });
+                        }
+                    }
+                }
+            }
+        });
+    }
 });
-
